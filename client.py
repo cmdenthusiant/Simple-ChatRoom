@@ -1,4 +1,6 @@
-import sys,os,socket,base64,threading,time,random,json
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+import sys,threading,socket,os,base64,select,json,random
 
 words = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -6,104 +8,92 @@ words = [
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
 ]
 
-class chatClient:
+class chatServer:
     def __init__(self) -> None:
-        self.username = ""
+        self.conns = []
+        self.users = []
     def run(self):
-        port = self.login()
-        client = socket.socket()
-        client.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-        client.bind(('0.0.0.0',port))
-        client.listen(20)
-        th = threading.Thread(target=self.listen,args=(client,))
-        th.daemon = True
-        th.start()
+        server = socket.socket()
+        server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+        server.bind(('0.0.0.0',5007))
+        server.setblocking(0)
+        server.listen(200)
+        self.conns.append(server)
         while True:
-            try:
-                text = input("")
-                if text == "":continue
-                self.send(text)
-            except KeyboardInterrupt:sys.exit(0)
-    def listen(self,client):
-        while True:
-            conn = client.accept()[0]
-            th = threading.Thread(target=self.recv,args=(conn,))
-            th.daemon = True
-            th.start()
-    def login(self):
-        s = socket.socket()
-        print("Connecting to Server...")
-        try:
-            s.connect(('59.149.49.218',5007))
-        except:
-            print("Server offline")
-            time.sleep(2)
-            sys.exit(0)
-        print("Connected to ChatServer!")
-        while True:
-            username = input("Enter your username:")
-            if username == "*console*":
-                print("This is not a valid name!")
-                continue
-            if username != "":
-                self.username = username
-                break
-        key = self.randomKey()
-        try:sended = s.send(str.encode(key+" "+enc("Login:"+username,key)))
-        except Exception as e:
-            print("Something went wrong: "+e)
-            time.sleep(2)
-            sys.exit(0)
-        if not sended:
-            print("Something went wrong...")
-            time.sleep(2)
-            sys.exit(0)
-        data = s.recv(1024)
-        if data.decode().startswith("Logined"):
-            try:
-                port = int(data.decode().split("Logined,port:")[1])
-                print("[*console*]Your are in the Chat now!\n")
-                return port
-            except:
-                print("Something went wrong...")
-                time.sleep(2)
-                sys.exit(0)
-        else:
-            print("Something went wrong...")
-            time.sleep(2)
-            sys.exit(0)
+            try:rb,_,er = select.select(self.conns,[],self.conns,1)
+            except KeyboardInterrupt:return
+            except:continue
+            for s in rb:
+                if s is server:
+                    try:
+                        client,addr = s.accept()
+                        client.setblocking(0)
+                        self.conns.append(client)
+                    except:pass
+                else:
+                    try:
+                        th = threading.Thread(target=self.recv,args=(s,))
+                        th.daemon = True
+                        th.start()
+                    except:pass
+            for s in er:
+                s.close()
     def randomKey(self):
         key = ""
         for i in range(random.randint(1,15)):key += words[random.randint(0,len(words)-1)]
         return key
-    def recv(self,conn):
+    def recv(self,client):
         try:
-            bdata = conn.recv(1024)
+            bdata = client.recv(1024)
             data = bdata.decode()
+            addr = client.getsockname()
             text = dec(data.split(" ")[1],data.split(" ")[0])
+        except:return
+        print(str(text))
+        if text.startswith("Login:"):
+            while True:
+                ranPort = random.randint(1,60000)
+                for i in self.users:
+                    if i == (addr[0],ranPort):continue
+                break
+            client.sendall(str.encode("Logined,port:"+str(ranPort)))
+            key = self.randomKey()
+            self.send(key+" "+enc('{"user":"*console*","text":"'+text.split(":")[1]+' is online!"}',key))
+            self.users.append((addr[0],ranPort))
+            self.conns.remove(client)
+            client.close()
+            return
+        try:
             objs = json.loads(text)
             sendtext = objs['text']
             fromUser = objs['user']
-        except:
-            conn.close()
-            return
-        print("["+fromUser+"]: "+sendtext)
-        conn.close()
-    def send(self,text):
-        s = socket.socket()
+        except:return
+        self.conns.remove(client)
+        client.close()
+        self.send(data)
+        #key = "ajdsckjn"
+        #client.sendall(str.encode(key+' '+enc("Received data:"+text,key)))
+        
+    def send(self,data):
+        for user in self.users:
+            while True:
+                try:
+                    th = threading.Thread(target=self.thsend,args=(user,data))
+                    th.daemon = True
+                    th.start()
+                    break
+                except RuntimeError:continue
+    def thsend(self,user,data):
         try:
-            s.connect(('59.149.49.218',5007)) 
+            s = socket.socket()
+            s.settimeout(1)
+            s.connect((user))
+            sended = s.send(data.encode())
+            if not sended:self.users.remove(user)
+            s.close()
         except:
-            print("Server offline")
-            time.sleep(2)
-            sys.exit(0)
-        key = self.randomKey()
-        sended = s.send(str.encode(key+" "+enc('{"user":"'+self.username+'","text":"'+text+'"}', key)))
-        if not sended:
-            print("Something went wrong...")
-            time.sleep(2)
-            sys.exit(0)
-        s.close()
+            self.users.remove(user)
+            s.close()
 
 def enc(text,key):
     code = ""
@@ -131,4 +121,4 @@ def dec(bcode, key):
         count += 1
     return text
 
-chatClient().run()
+chatServer().run()
