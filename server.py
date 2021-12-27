@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
 import sys,threading,socket,os,base64,select,json,random
 
 words = [
@@ -74,16 +76,24 @@ class chatServer:
         
     def send(self,data):
         for user in self.users:
-            try:
-                s = socket.socket()
-                s.settimeout(1)
-                s.connect((user))
-                sended = s.send(data.encode())
-                if not sended:self.users.remove(user)
-                s.close()
-            except:
-                self.users.remove(user)
-                s.close()
+            while True:
+                try:
+                    th = threading.Thread(target=self.thsend,args=(user,data))
+                    th.daemon = True
+                    th.start()
+                    break
+                except RuntimeError:continue
+    def thsend(self,user,data):
+        try:
+            s = socket.socket()
+            s.settimeout(1)
+            s.connect((user))
+            sended = s.send(data.encode())
+            if not sended:self.users.remove(user)
+            s.close()
+        except:
+            self.users.remove(user)
+            s.close()
 
 def enc(text,key):
     code = ""
