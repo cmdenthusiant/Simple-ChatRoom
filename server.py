@@ -58,8 +58,9 @@ class chatServer:
                 break
             client.sendall(str.encode("Logined,port:"+str(ranPort)))
             key = self.randomKey()
-            self.send(key+" "+enc('{"user":"*console*","text":"'+text.split(":")[1]+' is online!"}',key))
-            self.users.append((addr[0],ranPort))
+            username = text.split(":")[1]
+            self.send(key+" "+enc('{"user":"*console*","text":"'+username+' is online!"}',key))
+            self.users.append((addr[0],ranPort,username))
             self.conns.remove(client)
             client.close()
             return
@@ -68,6 +69,13 @@ class chatServer:
             sendtext = objs['text']
             fromUser = objs['user']
         except:return
+        if sendtext.startswith("/"):
+            returns = self.commands(sendtext)
+            if returns != "":
+                client.sendall(returns.encode())
+                self.conns.remove(client)
+                client.close()
+                return
         self.conns.remove(client)
         client.close()
         self.send(data)
@@ -86,8 +94,8 @@ class chatServer:
     def thsend(self,user,data):
         try:
             s = socket.socket()
-            s.settimeout(1)
-            s.connect((user))
+            s.settimeout(5)
+            s.connect((user[0],user[1]))
             sended = s.send(data.encode())
             if not sended:self.users.remove(user)
             s.close()
@@ -95,6 +103,15 @@ class chatServer:
             try:self.users.remove(user)
             except:pass
             s.close()
+    def commands(self,cmd):
+        if cmd == "/online":
+            usernames = ""
+            for user in self.users:
+                usernames += user[2] +", "
+            return 'onlines('+str(len(self.users))+'): '+usernames
+        elif cmd == "/ping":
+            return 'Ping:'
+        else: return ""
 
 def enc(text,key):
     code = ""
