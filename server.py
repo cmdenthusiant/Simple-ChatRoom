@@ -8,6 +8,8 @@ words = [
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
 ]
 
+ServerName = "ChatRoom" #ChatRoom Name
+
 class chatServer:
     def __init__(self) -> None:
         self.users = []
@@ -46,10 +48,16 @@ class chatServer:
             except:continue
             print(str(text))
             if text.startswith("Login:"):
-                client.sendall(str.encode("Logined"))
-                key = self.randomKey()
                 username = text.split(":")[1]
-                self.send(key+" "+enc('{"user":"*console*","text":"'+username+' is online!"}',key))
+                for user in self.users:
+                    if user[1] == username:
+                        client.sendall("UserNameExist".encode())
+                        client.close()
+                        return
+                client.sendall(str.encode("Logined,ServerName:"+ServerName))
+                key = self.randomKey()
+                text = enc(username +" is online!",key)
+                self.send(key+" "+enc('{"user":"*console*","text":"'+text+'"}',key))
                 self.users.append((client,username))
                 continue
             try:
