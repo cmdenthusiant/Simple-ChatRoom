@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import sys,threading,socket,os,base64,select,json,random
+import sys,threading,socket,os,base64,select,json,random,time
 
 words = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -10,75 +10,61 @@ words = [
 
 class chatServer:
     def __init__(self) -> None:
-        self.conns = []
         self.users = []
     def run(self):
         server = socket.socket()
         server.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         server.bind(('0.0.0.0',5007))
-        server.setblocking(0)
         server.listen(200)
-        self.conns.append(server)
         while True:
-            try:rb,_,er = select.select(self.conns,[],self.conns,1)
-            except KeyboardInterrupt:return
-            except:continue
-            for s in rb:
-                if s is server:
-                    try:
-                        client,addr = s.accept()
-                        client.setblocking(0)
-                        self.conns.append(client)
-                    except:pass
-                else:
-                    try:
-                        th = threading.Thread(target=self.recv,args=(s,))
-                        th.daemon = True
-                        th.start()
-                    except:pass
-            for s in er:
+            try:
+                s = server.accept()[0]
+                th = threading.Thread(target=self.recv,args=(s,))
+                th.daemon = True
+                th.start()
+            except KeyboardInterrupt:sys.exit(0)
+            except RuntimeError:
+                s.sendall("ChatRoom is full now!\nPlease try later.")
                 s.close()
     def randomKey(self):
         key = ""
         for i in range(random.randint(1,15)):key += words[random.randint(0,len(words)-1)]
         return key
     def recv(self,client):
-        try:
-            bdata = client.recv(1024)
-            data = bdata.decode()
-            addr = client.getsockname()
-            text = dec(data.split(" ")[1],data.split(" ")[0])
-        except:return
-        print(str(text))
-        if text.startswith("Login:"):
-            while True:
-                ranPort = random.randint(1,60000)
-                for i in self.users:
-                    if i == (addr[0],ranPort):continue
-                break
-            client.sendall(str.encode("Logined,port:"+str(ranPort)))
-            key = self.randomKey()
-            username = text.split(":")[1]
-            self.send(key+" "+enc('{"user":"*console*","text":"'+username+' is online!"}',key))
-            self.users.append((addr[0],ranPort,username))
-            self.conns.remove(client)
-            client.close()
-            return
-        try:
-            objs = json.loads(text)
-            sendtext = objs['text']
-            fromUser = objs['user']
-        except:return
-        if sendtext.startswith("/"):
-            returns = self.commands(sendtext)
-            if returns != "":
-                client.sendall(returns.encode())
-                self.conns.remove(client)
+        while True:
+            try:
+                bdata = client.recv(1024)
+            except:
+                for user in self.users:
+                    if client in user:self.users.remove(user)
+                    break
                 client.close()
-                return
-        self.conns.remove(client)
-        client.close()
-        self.send(data)
+                break
+            try:
+                data = bdata.decode()
+                text = dec(data.split(" ")[1],data.split(" ")[0])
+            except:continue
+            print(str(text))
+            if text.startswith("Login:"):
+                client.sendall(str.encode("Logined"))
+                key = self.randomKey()
+                username = text.split(":")[1]
+                self.send(key+" "+enc('{"user":"*console*","text":"'+username+' is online!"}',key))
+                self.users.append((client,username))
+                continue
+            try:
+                objs = json.loads(text)
+                sendtext = objs['text']
+                fromUser = objs['user']
+            except:continue
+            if sendtext.startswith("/"):
+                returns = self.commands(sendtext)
+                if returns != "":
+                    key = self.randomKey()
+                    client.sendall(str.encode(key+" "+enc(returns,key)))
+                    continue
+                data
+            self.send(data)
         #key = "ajdsckjn"
         #client.sendall(str.encode(key+' '+enc("Received data:"+text,key)))
         
@@ -93,24 +79,20 @@ class chatServer:
                 except RuntimeError:continue
     def thsend(self,user,data):
         try:
-            s = socket.socket()
-            s.settimeout(5)
-            s.connect((user[0],user[1]))
-            sended = s.send(data.encode())
+            sended = user[0].send(data.encode())
             if not sended:self.users.remove(user)
-            s.close()
         except:
             try:self.users.remove(user)
             except:pass
-            s.close()
     def commands(self,cmd):
+        text = '{"user":"*console*","text":"%s"}'
         if cmd == "/online":
             usernames = ""
             for user in self.users:
-                usernames += user[2] +", "
-            return 'onlines('+str(len(self.users))+'): '+usernames
+                usernames += user[1] +", "
+            return text%('onlines('+str(len(self.users))+'): '+usernames)
         elif cmd == "/ping":
-            return 'Ping:'
+            return text%'Ping:'
         else: return ""
 
 def enc(text,key):
