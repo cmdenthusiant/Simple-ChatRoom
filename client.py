@@ -8,6 +8,8 @@ words = [
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
 ]
 
+serverIp = "59.149.49.218" #your Server Ip
+
 class chatClient:
     def __init__(self) -> None:
         self.username = ""
@@ -42,7 +44,7 @@ class chatClient:
         s = socket.socket()
         print("Connecting to Server...")
         try:
-            s.connect(('59.149.49.218',5007))
+            s.connect((serverIp,5007))
         except:
             print("Server offline")
             time.sleep(2)
@@ -106,7 +108,7 @@ class chatClient:
                 startTime = time.time()
         s = socket.socket()
         try:
-            s.connect(('59.149.49.218',5007)) 
+            s.connect((serverIp,5007)) 
         except:
             print("Server offline")
             time.sleep(2)
