@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import sys,os,socket,base64,threading,time,random,json
+import sys,os,socket,base64,threading,time,random,json,time
 
 words = [
     'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
@@ -24,6 +24,12 @@ class chatClient:
             try:
                 text = input("")
                 if text == "":continue
+                if text == "/help":
+                    self.help()
+                    continue
+                if text.startswith("/"):
+                    self.send(text,True)
+                    continue
                 self.send(text)
             except KeyboardInterrupt:sys.exit(0)
     def listen(self,client):
@@ -47,6 +53,9 @@ class chatClient:
             if username == "*console*":
                 print("This is not a valid name!")
                 continue
+            if len(username) > 10:
+                print("Username is too long!")
+                continue
             if username != "":
                 self.username = username
                 break
@@ -64,7 +73,7 @@ class chatClient:
         if data.decode().startswith("Logined"):
             try:
                 port = int(data.decode().split("Logined,port:")[1])
-                print("[*console*]Your are in the Chat now!\n")
+                print("[*console*]Your are in the Chat now! Type /help for commands\n")
                 return port
             except:
                 print("Something went wrong...")
@@ -91,7 +100,10 @@ class chatClient:
             return
         print("["+fromUser+"]: "+sendtext)
         conn.close()
-    def send(self,text):
+    def send(self,text,command=False):
+        if command:
+            if text == "/ping":
+                startTime = time.time()
         s = socket.socket()
         try:
             s.connect(('59.149.49.218',5007)) 
@@ -105,7 +117,18 @@ class chatClient:
             print("Something went wrong...")
             time.sleep(2)
             sys.exit(0)
+        if command:
+            try:data = s.recv(1024).decode()
+            except:
+                s.close()
+                return
+            if data == "Ping:":
+                data += str(round((time.time()-startTime)*1000))+"ms"
+            if data != "":
+                print("[*console*]: "+data)
         s.close()
+    def help(self):
+        print("="*50+"\n/online :get online members\n/ping :get ping(ms)\n"+"="*50)
 
 def enc(text,key):
     code = ""
