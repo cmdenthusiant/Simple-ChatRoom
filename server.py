@@ -92,7 +92,8 @@ class chatServer:
             if not sended:self.users.remove(user)
             s.close()
         except:
-            self.users.remove(user)
+            try:self.users.remove(user)
+            except:pass
             s.close()
 
 def enc(text,key):
