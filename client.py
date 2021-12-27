@@ -8,7 +8,7 @@ words = [
     '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'
 ]
 
-serverIp = "59.149.49.218" #your server Ip
+serverIp = "59.149.49.218" #Your Server Ip Address
 
 class chatClient:
     def __init__(self) -> None:
@@ -82,7 +82,7 @@ class chatClient:
                 data = bdata.decode()
                 text = dec(data.split(" ")[1],data.split(" ")[0])
                 objs = json.loads(text)
-                sendtext = objs['text']
+                sendtext = dec(objs['text'],data.split(" ")[0])
                 fromUser = objs['user']
                 if self.command:
                     if sendtext == "Ping:":
@@ -99,6 +99,7 @@ class chatClient:
                 startTime = time.time()
                 self.PingStartTime = startTime
         key = self.randomKey()
+        text = enc(text,key)
         try:sended = client.send(str.encode(key+" "+enc('{"user":"'+self.username+'","text":"'+text+'"}', key)))
         except:
             print("Disconnected!\nRetrying...")
@@ -118,11 +119,10 @@ def enc(text,key):
     count = 0
     for c in text:
         if count >= keylen:count = 0
-        for i in str(c):
-            try:code += chr(ord(str(i))^(ord(key[count])-[keylen,15][keylen>15]))
-            except Exception as e:
-                print(c,e.args)
-                return ""
+        try:code += chr((ord(c)+(ord(key[count])))-[keylen,15][keylen>15])
+        except TypeError as e:
+            print(c,e.args)
+            return ""
         count += 1
     c = base64.b64encode(code.encode()).decode()
     return c
@@ -134,7 +134,7 @@ def dec(bcode, key):
     count = 0
     for c in code:
         if count >= keylen:count = 0
-        text += chr(ord(c)^(ord(key[count])-[keylen,15][keylen>15]))
+        text += chr((ord(c)+[keylen,15][keylen>15])-(ord(key[count])))
         count += 1
     return text
 
