@@ -15,6 +15,7 @@ class chatClient:
         self.username = ""
         self.command = False
         self.PingStartTime = 0
+        self.serverName = ""
     def run(self):
         client = self.login()
         th = threading.Thread(target=self.recv,args=(client,))
@@ -64,9 +65,15 @@ class chatClient:
             time.sleep(2)
             sys.exit(0)
         data = s.recv(1024)
-        if data.decode() == "Logined":
-            print("[*console*]Your are in the Chat now! Type /help for commands\n")
+        if data.decode().startswith("Logined"):
+            self.serverName = data.decode().split("Logined,ServerName:")[1]
+            if self.serverName == "":self.serverName = "Chat"
+            print("[*console*] Your are in the "+self.serverName+" now! Type /help for commands\n")
             return s
+        elif data.decode() == "UserNameExist":
+            print("Username Already Exist!")
+            self.login()
+            return
         else:
             print("Something went wrong...")
             time.sleep(2)
@@ -98,20 +105,26 @@ class chatClient:
             if text == "/ping":
                 startTime = time.time()
                 self.PingStartTime = startTime
+            if text == "/chatname":
+                print("[*console*] Current ChatRoom Name: "+self.serverName)
+                return
         key = self.randomKey()
         text = enc(text,key)
         try:sended = client.send(str.encode(key+" "+enc('{"user":"'+self.username+'","text":"'+text+'"}', key)))
         except:
             print("Disconnected!\nRetrying...")
             self.run()
-            return
         if not sended:
             print("Something went wrong...")
             time.sleep(2)
             sys.exit(0)
         return
     def help(self):
-        print("="*50+"\n/online :get online members\n/ping :get ping(ms)\n"+"="*50)
+        print("="*50+"""
+/online :get online members
+/ping :get ping(ms)
+/chatname :get Current ChatRoom Name
+"""+"="*50)
 
 def enc(text,key):
     code = ""
