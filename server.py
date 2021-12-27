@@ -54,16 +54,16 @@ class chatServer:
                 continue
             try:
                 objs = json.loads(text)
-                sendtext = objs['text']
+                sendtext = dec(objs['text'],data.split(" ")[0])
                 fromUser = objs['user']
             except:continue
             if sendtext.startswith("/"):
                 returns = self.commands(sendtext)
                 if returns != "":
                     key = self.randomKey()
-                    client.sendall(str.encode(key+" "+enc(returns,key)))
+                    text = '{"user":"*console*","text":"%s"}'%enc(returns,key)
+                    client.sendall(str.encode(key+" "+enc(text,key)))
                     continue
-                data
             self.send(data)
         #key = "ajdsckjn"
         #client.sendall(str.encode(key+' '+enc("Received data:"+text,key)))
@@ -85,14 +85,14 @@ class chatServer:
             try:self.users.remove(user)
             except:pass
     def commands(self,cmd):
-        text = '{"user":"*console*","text":"%s"}'
+        
         if cmd == "/online":
             usernames = ""
             for user in self.users:
                 usernames += user[1] +", "
-            return text%('onlines('+str(len(self.users))+'): '+usernames)
+            return ('onlines('+str(len(self.users))+'): '+usernames)
         elif cmd == "/ping":
-            return text%'Ping:'
+            return 'Ping:'
         else: return ""
 
 def enc(text,key):
@@ -101,11 +101,10 @@ def enc(text,key):
     count = 0
     for c in text:
         if count >= keylen:count = 0
-        for i in str(c):
-            try:code += chr(ord(str(i))^(ord(key[count])-[keylen,15][keylen>15]))
-            except Exception as e:
-                print(c,e.args)
-                return ""
+        try:code += chr((ord(c)+(ord(key[count])))-[keylen,15][keylen>15])
+        except TypeError as e:
+            print(c,e.args)
+            return ""
         count += 1
     c = base64.b64encode(code.encode()).decode()
     return c
@@ -117,7 +116,7 @@ def dec(bcode, key):
     count = 0
     for c in code:
         if count >= keylen:count = 0
-        text += chr(ord(c)^(ord(key[count])-[keylen,15][keylen>15]))
+        text += chr((ord(c)+[keylen,15][keylen>15])-(ord(key[count])))
         count += 1
     return text
 
